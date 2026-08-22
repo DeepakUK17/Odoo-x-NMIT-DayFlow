@@ -7,5 +7,4 @@ Thumbs.db
 .vscode/
 *.local
 
-# NEVER ignore AI Contents - it must be in the repo
-# AI Contents/ is NOT listed here intentionally
+AI Contents/
