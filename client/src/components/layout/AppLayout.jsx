@@ -3,6 +3,7 @@ import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import { attendanceAPI } from '../../services/api';
 import NotificationBell from '../notifications/NotificationBell';
 import {
   Home, Clock, Calendar, CreditCard, Bell, User, LogOut,
@@ -43,6 +44,15 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [todayAtt, setTodayAtt] = useState(null);
+
+  React.useEffect(() => {
+    if (!isHR && user) {
+      attendanceAPI.getToday()
+        .then(res => setTodayAtt(res.data.record))
+        .catch(() => {});
+    }
+  }, [isHR, user, location.pathname]);
 
   const nav = isHR ? hrNav : employeeNav;
   const displayName = user?.employee ? `${user.employee.firstName} ${user.employee.lastName}` : user?.email;
@@ -96,12 +106,23 @@ export default function AppLayout() {
         {/* Footer */}
         <div className="sidebar-footer">
           {/* Connection status */}
-          {!collapsed && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: '0.7rem', color: connected ? 'var(--success)' : 'var(--text-muted)' }}>
-              <span className={`status-dot ${connected ? 'online' : 'offline'}`} />
-              {connected ? 'Live' : 'Offline'}
-            </div>
-          )}
+          {!collapsed && (() => {
+            let label = isHR ? 'System Online' : 'Not Checked In';
+            let color = isHR ? 'var(--success)' : 'var(--text-muted)';
+            let dot = isHR ? 'online' : 'offline';
+            
+            if (!isHR && todayAtt) {
+              if (todayAtt.checkInTime && todayAtt.checkOutTime) { label = 'Checked Out'; }
+              else if (todayAtt.checkInTime) { label = 'Checked In'; color = 'var(--success)'; dot = 'online'; }
+            }
+            
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: '0.7rem', color: connected ? color : 'var(--danger)' }}>
+                <span className={`status-dot ${connected ? dot : 'offline'}`} style={!connected ? { background: 'var(--danger)', boxShadow: 'none' } : undefined} />
+                {connected ? label : 'Offline'}
+              </div>
+            );
+          })()}
 
           {/* User info */}
           <div className="sidebar-user" onClick={handleLogout} title="Click to log out">
