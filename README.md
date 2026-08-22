@@ -13,7 +13,7 @@ An intelligent, real-time Human Resource Management System that transforms workf
 | Resource | Link |
 |---|---|
 | 🌐 **Live Application** | https://odoo-x-nmit-day-flow.vercel.app |
-| 📹 **Video Presentation** | *(Submission link will be placed here)* |
+| 📹 **Video Presentation** | https://drive.google.com/drive/folders/1-DjMj2HxE1gP9ewPajAYezVCUHesFq68?usp=sharing |
 | 🐙 **GitHub Repository** | https://github.com/DeepakUK17/Odoo-x-NMIT-DayFlow |
 
 ### 🔑 Demo Credentials — Try the App Instantly
