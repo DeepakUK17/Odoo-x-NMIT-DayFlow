@@ -86,7 +86,10 @@ export default function EmployeeDashboard() {
       <div className="topbar">
         <div>
           <h1 className="page-title">{greeting}, {displayName} 👋</h1>
-          <p className="page-subtitle">{format(now, 'EEEE, MMMM d, yyyy')} · {connected ? <span style={{ color: 'var(--success)' }}>● System Online</span> : '○ Offline'}</p>
+          <p className="page-subtitle">
+            {format(now, 'EEEE, MMMM d, yyyy')} ·{' '}
+            <span style={{ color: attStatus.color, fontWeight: 600 }}>{attStatus.label === 'Checked In' ? '●' : '○'} {attStatus.label}</span>
+          </p>
         </div>
         <div className="topbar-actions">
           <Link to="/leave" className="btn btn-primary btn-sm">+ Apply Leave</Link>
