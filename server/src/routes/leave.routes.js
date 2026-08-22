@@ -1,7 +1,7 @@
 import express from 'express';
 import { db } from '../db/index.js';
 import { leaveRequests, leaveTypes, leaveBalances, employees, users, notifications, auditLogs, attendance } from '../db/schema.js';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { authenticate, requireHR } from '../middleware/auth.js';
 
 const router = express.Router();

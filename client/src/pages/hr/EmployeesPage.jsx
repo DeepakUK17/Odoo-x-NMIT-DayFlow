@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { employeesAPI } from '../../services/api';
-import { Search, Plus, X, UserPlus } from 'lucide-react';
+import { Search, Plus, X, UserPlus, Edit2, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 
@@ -17,6 +17,9 @@ export default function HREmployeesPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({ firstName: '', lastName: '', email: '', designation: '', departmentId: '' });
   const [addLoading, setAddLoading] = useState(false);
+  const [editEmp, setEditEmp] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [editLoading, setEditLoading] = useState(false);
 
   const load = async () => {
     try {
@@ -51,6 +54,25 @@ export default function HREmployeesPage() {
     }
   };
 
+  const openEdit = (emp) => {
+    setEditEmp(emp);
+    setEditForm({ ...emp });
+  };
+
+  const handleEdit = async () => {
+    setEditLoading(true);
+    try {
+      await employeesAPI.update(editEmp.id, editForm);
+      toast.success('Employee updated');
+      setEditEmp(null);
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update employee');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   return (
     <div className="animate-fadeIn">
       <div className="topbar">
@@ -76,10 +98,13 @@ export default function HREmployeesPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
           {filtered.map((emp, i) => (
-            <motion.div key={emp.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-              whileHover={{ y: -4 }} className="card" style={{ textAlign: 'center', padding: 'var(--sp-6)' }}>
-              <div className="avatar avatar-xl" style={{ margin: '0 auto var(--sp-4)' }}>
-                {getInitials(emp.firstName, emp.lastName)}
+            <motion.div key={emp.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i < 15 ? i * 0.04 : 0 }}
+              whileHover={{ y: -4 }} className="card" style={{ position: 'relative', textAlign: 'center', padding: 'var(--sp-6)' }}>
+              <div style={{ position: 'absolute', top: 12, right: 12 }}>
+                <button className="btn btn-ghost btn-sm btn-icon" onClick={() => openEdit(emp)}><Edit2 size={14}/></button>
+              </div>
+              <div className="avatar avatar-xl" style={{ margin: '0 auto var(--sp-4)', overflow: 'hidden' }}>
+                {emp.profilePictureUrl ? <img src={emp.profilePictureUrl} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} /> : getInitials(emp.firstName, emp.lastName)}
               </div>
               <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: 4 }}>{emp.firstName} {emp.lastName}</div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 4 }}>{emp.designation || 'Employee'}</div>
@@ -140,6 +165,60 @@ export default function HREmployeesPage() {
 
               <button className="btn btn-primary btn-full" onClick={handleAdd} disabled={addLoading}>
                 {addLoading ? <><div className="spinner spinner-sm" style={{ borderTopColor: '#fff' }} /> Creating...</> : <><Plus size={14} /> Create Employee</>}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Employee Modal */}
+      <AnimatePresence>
+        {editEmp && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="modal-overlay"
+            onClick={e => e.target === e.currentTarget && setEditEmp(null)}>
+            <motion.div initial={{ scale: 0.93 }} animate={{ scale: 1 }} exit={{ scale: 0.93 }} className="modal">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                <h3>Edit Employee</h3>
+                <button className="btn btn-ghost btn-icon" onClick={() => setEditEmp(null)}><X size={18} /></button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="form-group">
+                  <label className="form-label">First Name *</label>
+                  <input className="form-input" value={editForm.firstName} onChange={e => setEditForm(f => ({ ...f, firstName: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Last Name</label>
+                  <input className="form-input" value={editForm.lastName} onChange={e => setEditForm(f => ({ ...f, lastName: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Designation</label>
+                <input className="form-input" value={editForm.designation} onChange={e => setEditForm(f => ({ ...f, designation: e.target.value }))} />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Profile Image URL</label>
+                <input className="form-input" placeholder="https://..." value={editForm.profilePictureUrl || ''} onChange={e => setEditForm(f => ({ ...f, profilePictureUrl: e.target.value }))} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="form-group">
+                  <label className="form-label">Phone</label>
+                  <input className="form-input" value={editForm.phone || ''} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Status</label>
+                  <select className="form-input" value={editForm.status} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+
+              <button className="btn btn-primary btn-full" onClick={handleEdit} disabled={editLoading}>
+                {editLoading ? <><div className="spinner spinner-sm" style={{ borderTopColor: '#fff' }} /> Saving...</> : <><Save size={14} /> Save Changes</>}
               </button>
             </motion.div>
           </motion.div>

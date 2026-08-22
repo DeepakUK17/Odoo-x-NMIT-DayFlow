@@ -3,7 +3,11 @@ import { db } from '../db/index.js';
 import { attendance, employees, leaveRequests, leaveTypes, departments, payroll, leaveBalances } from '../db/schema.js';
 import { eq, and, lt, lte, gte, desc } from 'drizzle-orm';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+let genAI = null;
+function getGenAI() {
+  if (!genAI) genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  return genAI;
+}
 
 // ─── Controlled Tool Functions ─────────────────────────────────────────────────
 async function getAttendanceSummary() {
@@ -221,7 +225,7 @@ export async function processHRQuery(query, userRole) {
     throw new Error('HR Admin access required for AI queries');
   }
 
-  const model = genAI.getGenerativeModel({
+  const model = getGenAI().getGenerativeModel({
     model: 'gemini-1.5-flash',
     tools: [{ functionDeclarations: tools }],
     systemInstruction: `You are DAYFLOW Intelligence, an AI HR assistant. You have access to tools that query real HR data.
@@ -270,7 +274,7 @@ export async function processLeaveAssist(naturalLanguageInput, employeeId) {
     .leftJoin(leaveTypes, eq(leaveBalances.leaveTypeId, leaveTypes.id))
     .where(and(eq(leaveBalances.employeeId, employeeId), eq(leaveBalances.year, today.getFullYear())));
 
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = getGenAI().getGenerativeModel({ model: 'gemini-1.5-flash' });
   const prompt = `You are a leave assistant. Today is ${today.toDateString()}.
 Employee's leave balances: ${JSON.stringify(balances)}.
 Employee says: "${naturalLanguageInput}"

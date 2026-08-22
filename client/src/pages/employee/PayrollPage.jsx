@@ -72,8 +72,8 @@ export default function PayrollPage() {
     doc.setFont('helvetica', 'normal'); doc.setTextColor(51, 65, 85); doc.setFontSize(9);
     const maxRows = Math.max(earnings.length, deductions.length);
     for (let i = 0; i < maxRows; i++) {
-      if (earnings[i]) { doc.text(earnings[i][0], col1, y); doc.text(`₹${parseFloat(earnings[i][1] || 0).toLocaleString('en-IN')}`, col2 - 20, y, { align: 'right' }); }
-      if (deductions[i]) { doc.text(deductions[i][0], col2, y); doc.text(`₹${parseFloat(deductions[i][1] || 0).toLocaleString('en-IN')}`, col3, y, { align: 'right' }); }
+      if (earnings[i]) { doc.text(earnings[i][0], col1, y); doc.text(`Rs. ${parseFloat(earnings[i][1] || 0).toLocaleString('en-IN')}`, col2 - 20, y, { align: 'right' }); }
+      if (deductions[i]) { doc.text(deductions[i][0], col2, y); doc.text(`Rs. ${parseFloat(deductions[i][1] || 0).toLocaleString('en-IN')}`, col3, y, { align: 'right' }); }
       y += 22;
     }
 
@@ -83,7 +83,7 @@ export default function PayrollPage() {
     doc.rect(40, y, 515, 40, 'F');
     doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
     doc.text('NET SALARY', 60, y + 25);
-    doc.text(`₹${parseFloat(selectedMonth.netSalary || 0).toLocaleString('en-IN')}`, 540, y + 25, { align: 'right' });
+    doc.text(`Rs. ${parseFloat(selectedMonth.netSalary || 0).toLocaleString('en-IN')}`, 540, y + 25, { align: 'right' });
 
     // Footer
     doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(148, 163, 184);

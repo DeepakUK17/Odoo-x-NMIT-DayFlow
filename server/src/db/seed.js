@@ -98,6 +98,7 @@ async function seed() {
       phone: seed.phone,
       address: 'Bengaluru, Karnataka',
       joinDate: seed.joinDate,
+      profilePictureUrl: `https://i.pravatar.cc/150?u=${seed.email}`,
       status: 'active',
     }).returning();
     createdEmployees.push(e);

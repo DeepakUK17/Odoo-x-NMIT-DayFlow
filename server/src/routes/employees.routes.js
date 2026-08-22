@@ -128,11 +128,11 @@ router.put('/:id', authenticate, async (req, res) => {
     // Employees can only update certain fields
     let updateData = {};
     if (isHR) {
-      const { firstName, lastName, designation, phone, address, departmentId, joinDate, emergencyContact, status } = req.body;
-      updateData = { firstName, lastName, designation, phone, address, departmentId, joinDate, emergencyContact, status };
+      const { firstName, lastName, designation, phone, address, departmentId, joinDate, emergencyContact, status, profilePictureUrl } = req.body;
+      updateData = { firstName, lastName, designation, phone, address, departmentId, joinDate, emergencyContact, status, profilePictureUrl };
     } else {
-      const { phone, address, emergencyContact } = req.body;
-      updateData = { phone, address, emergencyContact };
+      const { phone, address, emergencyContact, profilePictureUrl } = req.body;
+      updateData = { phone, address, emergencyContact, profilePictureUrl };
     }
 
     // Remove undefined
@@ -215,7 +215,7 @@ router.post('/', authenticate, requireHR, async (req, res) => {
 });
 
 // GET /api/employees/departments/all
-router.get('/meta/departments', authenticate, async (req, res) => {
+router.get('/meta/departments', async (req, res) => {
   try {
     const depts = await db.select().from(departments);
     res.json(depts);

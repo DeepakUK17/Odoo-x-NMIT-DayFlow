@@ -89,7 +89,7 @@ export default function CommandCenterPage() {
           <h1 className="page-title">Dayflow HQ</h1>
           <p className="page-subtitle">
             {format(new Date(), 'EEEE, MMMM d, yyyy')} ·{' '}
-            {connected ? <span style={{ color: 'var(--success)' }}>● Live updates active</span> : <span style={{ color: 'var(--text-muted)' }}>○ Offline</span>}
+            {connected ? <span style={{ color: 'var(--success)' }}>● System Online</span> : <span style={{ color: 'var(--text-muted)' }}>○ Offline</span>}
           </p>
         </div>
       </div>

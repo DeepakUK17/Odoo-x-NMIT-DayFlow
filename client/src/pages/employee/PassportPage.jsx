@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { employeesAPI } from '../../services/api';
 import { format } from 'date-fns';
-import { RotateCcw, Mail, Phone, MapPin, Calendar, Briefcase, Building2 } from 'lucide-react';
+import { RotateCcw, Mail, Phone, MapPin, Calendar, Briefcase, Building2, Edit2, X, Save } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 function getInitials(first, last) {
   return `${first?.[0] || ''}${last?.[0] || ''}`.toUpperCase();
@@ -14,6 +15,9 @@ export default function PassportPage() {
   const [profile, setProfile] = useState(null);
   const [flipped, setFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [editLoading, setEditLoading] = useState(false);
 
   useEffect(() => {
     if (user?.employee?.id) {
@@ -29,11 +33,35 @@ export default function PassportPage() {
 
   const tenure = profile.joinDate ? Math.floor((new Date() - new Date(profile.joinDate)) / (365.25 * 24 * 3600000)) : 0;
 
+  const handleEdit = async () => {
+    setEditLoading(true);
+    try {
+      await employeesAPI.update(profile.id, editForm);
+      toast.success('Profile updated successfully');
+      setShowEdit(false);
+      // Reload profile
+      const r = await employeesAPI.getById(user.employee.id);
+      setProfile(r.data);
+    } catch (err) {
+      toast.error('Failed to update profile');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const openEdit = () => {
+    setEditForm({ phone: profile.phone, address: profile.address, emergencyContact: profile.emergencyContact, profilePictureUrl: profile.profilePictureUrl });
+    setShowEdit(true);
+  };
+
   return (
     <div className="animate-fadeIn">
-      <div className="page-header">
-        <h1 className="page-title">Employee Passport</h1>
-        <p className="page-subtitle">Your professional identity card — click to flip</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1 className="page-title">Employee Passport</h1>
+          <p className="page-subtitle">Your professional identity card — click to flip</p>
+        </div>
+        <button className="btn btn-secondary btn-sm" onClick={openEdit}><Edit2 size={14} /> Edit Profile</button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, alignItems: 'start' }}>
@@ -52,8 +80,8 @@ export default function PassportPage() {
                 </div>
 
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                  <div className="avatar avatar-xl" style={{ border: '2px solid rgba(255,255,255,0.2)', flexShrink: 0 }}>
-                    {getInitials(profile.firstName, profile.lastName)}
+                  <div className="avatar avatar-xl" style={{ border: '2px solid rgba(255,255,255,0.2)', flexShrink: 0, overflow: 'hidden' }}>
+                    {profile.profilePictureUrl ? <img src={profile.profilePictureUrl} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} /> : getInitials(profile.firstName, profile.lastName)}
                   </div>
                   <div>
                     <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fff', letterSpacing: '0.05em' }}>
@@ -146,6 +174,43 @@ export default function PassportPage() {
           )}
         </div>
       </div>
+
+      {/* Edit Profile Modal */}
+      {showEdit && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowEdit(false)}>
+          <motion.div initial={{ scale: 0.93 }} animate={{ scale: 1 }} className="modal">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <h3>Edit Profile</h3>
+              <button className="btn btn-ghost btn-icon" onClick={() => setShowEdit(false)}><X size={18} /></button>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Profile Image URL</label>
+              <input className="form-input" placeholder="https://..." value={editForm.profilePictureUrl || ''} onChange={e => setEditForm(f => ({ ...f, profilePictureUrl: e.target.value }))} />
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>You can use Unsplash or pravatar.cc URLs.</div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Phone</label>
+              <input className="form-input" value={editForm.phone || ''} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Address</label>
+              <input className="form-input" value={editForm.address || ''} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Emergency Contact</label>
+              <input className="form-input" value={editForm.emergencyContact || ''} onChange={e => setEditForm(f => ({ ...f, emergencyContact: e.target.value }))} />
+            </div>
+
+            <button className="btn btn-primary btn-full" onClick={handleEdit} disabled={editLoading}>
+              {editLoading ? <><div className="spinner spinner-sm" style={{ borderTopColor: '#fff' }} /> Saving...</> : <><Save size={14} /> Update Profile</>}
+            </button>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

@@ -60,6 +60,12 @@ router.get('/attendance-trend', authenticate, requireHR, async (req, res) => {
     const allEmployees = await db.select().from(employees).where(eq(employees.status, 'active'));
     const total = allEmployees.length;
 
+    const dStart = new Date();
+    dStart.setDate(dStart.getDate() - 6);
+    const startDateStr = dStart.toISOString().split('T')[0];
+
+    const recentAttendance = await db.select().from(attendance).where(sql`${attendance.date} >= ${startDateStr}`);
+
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
@@ -67,7 +73,7 @@ router.get('/attendance-trend', authenticate, requireHR, async (req, res) => {
       if (dayOfWeek === 0 || dayOfWeek === 6) continue;
 
       const dateStr = d.toISOString().split('T')[0];
-      const dayRecords = await db.select().from(attendance).where(eq(attendance.date, dateStr));
+      const dayRecords = recentAttendance.filter(r => r.date === dateStr);
       const present = dayRecords.filter(r => r.status === 'present').length;
       const absent = dayRecords.filter(r => r.status === 'absent').length;
       const pct = total > 0 ? Math.round((present / total) * 100) : 0;
@@ -110,7 +116,13 @@ router.get('/department-absenteeism', authenticate, requireHR, async (req, res) 
   try {
     const allDepts = await db.select().from(departments);
     const allEmps = await db.select().from(employees);
-    const allAtt = await db.select().from(attendance);
+    
+    // Only fetch last 30 days of attendance
+    const dStart = new Date();
+    dStart.setDate(dStart.getDate() - 30);
+    const startDateStr = dStart.toISOString().split('T')[0];
+    
+    const allAtt = await db.select().from(attendance).where(sql`${attendance.date} >= ${startDateStr}`);
     const result = [];
 
     for (const dept of allDepts) {
