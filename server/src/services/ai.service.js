@@ -226,7 +226,7 @@ export async function processHRQuery(query, userRole) {
   }
 
   const model = getGenAI().getGenerativeModel({
-    model: 'gemini-1.5-flash',
+    model: 'gemini-2.5-flash',
     tools: [{ functionDeclarations: tools }],
     systemInstruction: `You are DAYFLOW Intelligence, an AI HR assistant. You have access to tools that query real HR data.
     Always use the appropriate tool to answer questions. Never make up data.
@@ -274,7 +274,7 @@ export async function processLeaveAssist(naturalLanguageInput, employeeId) {
     .leftJoin(leaveTypes, eq(leaveBalances.leaveTypeId, leaveTypes.id))
     .where(and(eq(leaveBalances.employeeId, employeeId), eq(leaveBalances.year, today.getFullYear())));
 
-  const model = getGenAI().getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = getGenAI().getGenerativeModel({ model: 'gemini-2.5-flash' });
   const prompt = `You are a leave assistant. Today is ${today.toDateString()}.
 Employee's leave balances: ${JSON.stringify(balances)}.
 Employee says: "${naturalLanguageInput}"
