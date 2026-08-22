@@ -8,3 +8,6 @@ Thumbs.db
 *.local
 
 AI Contents/
+.agents/
+brag-output/
+skills-lock.json
