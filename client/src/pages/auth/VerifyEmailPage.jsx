@@ -9,7 +9,12 @@ export default function VerifyEmailPage() {
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('');
 
+  const hasVerified = React.useRef(false);
+
   useEffect(() => {
+    if (hasVerified.current) return;
+    hasVerified.current = true;
+    
     authAPI.verifyEmail(token)
       .then(r => { setMessage(r.data.message); setStatus('success'); })
       .catch(e => { setMessage(e.response?.data?.error || 'Verification failed'); setStatus('error'); });
