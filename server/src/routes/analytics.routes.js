@@ -11,28 +11,34 @@ router.get('/hr-summary', authenticate, requireHR, async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    const allEmployees = await db.select().from(employees).where(eq(employees.status, 'active'));
-    const totalEmployees = allEmployees.length;
+    const [empStats] = await db.select({ count: sql`count(*)::int` }).from(employees).where(eq(employees.status, 'active'));
+    const totalEmployees = empStats.count || 0;
 
-    const todayAttendance = await db.select().from(attendance).where(eq(attendance.date, today));
+    const [attStats] = await db.select({
+      present: sql`count(*) filter (where ${attendance.status} = 'present')::int`,
+      onLeave: sql`count(*) filter (where ${attendance.status} = 'on_leave')::int`,
+      halfDay: sql`count(*) filter (where ${attendance.status} = 'half_day')::int`,
+      late: sql`count(*) filter (where ${attendance.isLate} = true)::int`,
+      missingCheckout: sql`count(*) filter (where ${attendance.missingCheckout} = true)::int`
+    }).from(attendance).where(eq(attendance.date, today));
 
-    const present = todayAttendance.filter(a => a.status === 'present').length;
-    const onLeave = todayAttendance.filter(a => a.status === 'on_leave').length;
-    const halfDay = todayAttendance.filter(a => a.status === 'half_day').length;
+    const present = attStats?.present || 0;
+    const onLeave = attStats?.onLeave || 0;
+    const halfDay = attStats?.halfDay || 0;
     const absent = totalEmployees - present - onLeave - halfDay;
-    const late = todayAttendance.filter(a => a.isLate).length;
-    const missingCheckout = todayAttendance.filter(a => a.missingCheckout).length;
+    const late = attStats?.late || 0;
+    const missingCheckout = attStats?.missingCheckout || 0;
 
     const attendancePct = totalEmployees > 0
       ? Math.round(((present + halfDay * 0.5) / totalEmployees) * 100)
       : 0;
 
-    const pendingLeaves = await db.select().from(leaveRequests).where(eq(leaveRequests.status, 'pending'));
+    const [leaveStats] = await db.select({ count: sql`count(*)::int` }).from(leaveRequests).where(eq(leaveRequests.status, 'pending'));
 
-    const allPayroll = await db.select().from(payroll).where(
+    const [payrollStats] = await db.select({ total: sql`sum(cast(${payroll.netSalary} as numeric))` }).from(payroll).where(
       and(eq(payroll.month, new Date().getMonth() + 1), eq(payroll.year, new Date().getFullYear()))
     );
-    const totalPayroll = allPayroll.reduce((s, p) => s + parseFloat(p.netSalary || 0), 0);
+    const totalPayroll = payrollStats?.total ? parseFloat(payrollStats.total) : 0;
 
     res.json({
       totalEmployees,
@@ -43,7 +49,7 @@ router.get('/hr-summary', authenticate, requireHR, async (req, res) => {
       late,
       missingCheckout,
       attendancePct,
-      pendingLeaves: pendingLeaves.length,
+      pendingLeaves: leaveStats?.count || 0,
       totalPayroll,
       date: today,
     });
@@ -56,16 +62,22 @@ router.get('/hr-summary', authenticate, requireHR, async (req, res) => {
 // GET /api/analytics/attendance-trend — Weekly trend
 router.get('/attendance-trend', authenticate, requireHR, async (req, res) => {
   try {
-    const result = [];
-    const allEmployees = await db.select().from(employees).where(eq(employees.status, 'active'));
-    const total = allEmployees.length;
+    const [empStats] = await db.select({ count: sql`count(*)::int` }).from(employees).where(eq(employees.status, 'active'));
+    const total = empStats?.count || 0;
 
     const dStart = new Date();
     dStart.setDate(dStart.getDate() - 6);
     const startDateStr = dStart.toISOString().split('T')[0];
 
-    const recentAttendance = await db.select().from(attendance).where(sql`${attendance.date} >= ${startDateStr}`);
+    const stats = await db.select({
+      date: attendance.date,
+      present: sql`count(*) filter (where ${attendance.status} = 'present')::int`,
+      absent: sql`count(*) filter (where ${attendance.status} = 'absent')::int`,
+    }).from(attendance)
+      .where(sql`${attendance.date} >= ${startDateStr}`)
+      .groupBy(attendance.date);
 
+    const result = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
@@ -73,9 +85,9 @@ router.get('/attendance-trend', authenticate, requireHR, async (req, res) => {
       if (dayOfWeek === 0 || dayOfWeek === 6) continue;
 
       const dateStr = d.toISOString().split('T')[0];
-      const dayRecords = recentAttendance.filter(r => r.date === dateStr);
-      const present = dayRecords.filter(r => r.status === 'present').length;
-      const absent = dayRecords.filter(r => r.status === 'absent').length;
+      const dayStat = stats.find(s => s.date === dateStr);
+      const present = dayStat?.present || 0;
+      const absent = dayStat?.absent || 0;
       const pct = total > 0 ? Math.round((present / total) * 100) : 0;
 
       result.push({
@@ -89,6 +101,7 @@ router.get('/attendance-trend', authenticate, requireHR, async (req, res) => {
 
     res.json(result);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Failed to fetch trend' });
   }
 });
@@ -96,10 +109,14 @@ router.get('/attendance-trend', authenticate, requireHR, async (req, res) => {
 // GET /api/analytics/leave-distribution
 router.get('/leave-distribution', authenticate, requireHR, async (req, res) => {
   try {
-    const allLeaves = await db.select().from(leaveRequests);
-    const pending = allLeaves.filter(l => l.status === 'pending').length;
-    const approved = allLeaves.filter(l => l.status === 'approved').length;
-    const rejected = allLeaves.filter(l => l.status === 'rejected').length;
+    const stats = await db.select({
+      status: leaveRequests.status,
+      count: sql`count(*)::int`
+    }).from(leaveRequests).groupBy(leaveRequests.status);
+
+    const pending = stats.find(s => s.status === 'pending')?.count || 0;
+    const approved = stats.find(s => s.status === 'approved')?.count || 0;
+    const rejected = stats.find(s => s.status === 'rejected')?.count || 0;
 
     res.json([
       { status: 'Pending', count: pending, color: '#f59e0b' },
@@ -107,6 +124,7 @@ router.get('/leave-distribution', authenticate, requireHR, async (req, res) => {
       { status: 'Rejected', count: rejected, color: '#ef4444' },
     ]);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Failed to fetch leave distribution' });
   }
 });
@@ -114,32 +132,36 @@ router.get('/leave-distribution', authenticate, requireHR, async (req, res) => {
 // GET /api/analytics/department-absenteeism
 router.get('/department-absenteeism', authenticate, requireHR, async (req, res) => {
   try {
-    const allDepts = await db.select().from(departments);
-    const allEmps = await db.select().from(employees);
-    
-    // Only fetch last 30 days of attendance
     const dStart = new Date();
     dStart.setDate(dStart.getDate() - 30);
     const startDateStr = dStart.toISOString().split('T')[0];
     
-    const allAtt = await db.select().from(attendance).where(sql`${attendance.date} >= ${startDateStr}`);
-    const result = [];
+    const results = await db.select({
+      department: departments.name,
+      code: departments.code,
+      employeeCount: sql`count(distinct ${employees.id})::int`,
+      absent: sql`count(${attendance.id}) filter (where ${attendance.status} = 'absent' and ${attendance.date} >= ${startDateStr})::int`,
+      workdays: sql`count(${attendance.id}) filter (where ${attendance.status} not in ('weekend', 'holiday') and ${attendance.date} >= ${startDateStr})::int`
+    })
+    .from(departments)
+    .leftJoin(employees, eq(employees.departmentId, departments.id))
+    .leftJoin(attendance, eq(attendance.employeeId, employees.id))
+    .groupBy(departments.id);
 
-    for (const dept of allDepts) {
-      const deptEmps = allEmps.filter(e => e.departmentId === dept.id);
-      if (deptEmps.length === 0) continue;
+    const formatted = results.map(r => {
+      const absentPct = r.workdays > 0 ? Math.round((r.absent / r.workdays) * 100) : 0;
+      return {
+        department: r.department,
+        code: r.code,
+        absent: r.absent || 0,
+        absentPct,
+        employeeCount: r.employeeCount || 0
+      };
+    }).filter(r => r.employeeCount > 0);
 
-      const deptEmpIds = deptEmps.map(e => e.id);
-      const deptAtt = allAtt.filter(a => deptEmpIds.includes(a.employeeId));
-      const workdays = deptAtt.filter(a => a.status !== 'weekend' && a.status !== 'holiday');
-      const absent = workdays.filter(a => a.status === 'absent').length;
-      const absentPct = workdays.length > 0 ? Math.round((absent / workdays.length) * 100) : 0;
-
-      result.push({ department: dept.name, code: dept.code, absent, absentPct, employeeCount: deptEmps.length });
-    }
-
-    res.json(result.sort((a, b) => b.absentPct - a.absentPct));
+    res.json(formatted.sort((a, b) => b.absentPct - a.absentPct));
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Failed to fetch department absenteeism' });
   }
 });
@@ -150,16 +172,24 @@ router.get('/employee-stats', authenticate, async (req, res) => {
     const [emp] = await db.select().from(employees).where(eq(employees.userId, req.user.id)).limit(1);
     if (!emp) return res.status(404).json({ error: 'Employee not found' });
 
-    const allAtt = await db.select().from(attendance).where(eq(attendance.employeeId, emp.id));
-    const workdays = allAtt.filter(a => a.status !== 'weekend' && a.status !== 'holiday');
-    const present = workdays.filter(a => a.status === 'present').length;
-    const absent = workdays.filter(a => a.status === 'absent').length;
-    const halfDay = workdays.filter(a => a.status === 'half_day').length;
-    const onLeave = workdays.filter(a => a.status === 'on_leave').length;
-    const lateCount = workdays.filter(a => a.isLate).length;
-    const attendancePct = workdays.length > 0 ? Math.round(((present + halfDay * 0.5) / workdays.length) * 100) : 0;
+    const [stats] = await db.select({
+      present: sql`count(*) filter (where ${attendance.status} = 'present' and ${attendance.status} not in ('weekend', 'holiday'))::int`,
+      absent: sql`count(*) filter (where ${attendance.status} = 'absent' and ${attendance.status} not in ('weekend', 'holiday'))::int`,
+      halfDay: sql`count(*) filter (where ${attendance.status} = 'half_day' and ${attendance.status} not in ('weekend', 'holiday'))::int`,
+      onLeave: sql`count(*) filter (where ${attendance.status} = 'on_leave' and ${attendance.status} not in ('weekend', 'holiday'))::int`,
+      lateCount: sql`count(*) filter (where ${attendance.isLate} = true and ${attendance.status} not in ('weekend', 'holiday'))::int`,
+      totalWorkdays: sql`count(*) filter (where ${attendance.status} not in ('weekend', 'holiday'))::int`,
+    }).from(attendance).where(eq(attendance.employeeId, emp.id));
 
-    // Monthly trend (last 4 weeks)
+    const present = stats?.present || 0;
+    const absent = stats?.absent || 0;
+    const halfDay = stats?.halfDay || 0;
+    const onLeave = stats?.onLeave || 0;
+    const lateCount = stats?.lateCount || 0;
+    const totalWorkdays = stats?.totalWorkdays || 0;
+    
+    const attendancePct = totalWorkdays > 0 ? Math.round(((present + halfDay * 0.5) / totalWorkdays) * 100) : 0;
+
     const trend = [];
     for (let i = 3; i >= 0; i--) {
       const weekStart = new Date();
@@ -167,12 +197,20 @@ router.get('/employee-stats', authenticate, async (req, res) => {
       const weekEnd = new Date();
       weekEnd.setDate(weekEnd.getDate() - i * 7);
 
-      const weekAtt = workdays.filter(a => {
-        const d = new Date(a.date);
-        return d >= weekStart && d <= weekEnd;
-      });
-      const weekPresent = weekAtt.filter(a => a.status === 'present').length;
-      const weekTotal = weekAtt.length;
+      const [weekStats] = await db.select({
+        weekPresent: sql`count(*) filter (where ${attendance.status} = 'present' and ${attendance.status} not in ('weekend', 'holiday'))::int`,
+        weekTotal: sql`count(*) filter (where ${attendance.status} not in ('weekend', 'holiday'))::int`
+      }).from(attendance)
+        .where(
+          and(
+            eq(attendance.employeeId, emp.id),
+            sql`${attendance.date} >= ${weekStart.toISOString().split('T')[0]}`,
+            sql`${attendance.date} <= ${weekEnd.toISOString().split('T')[0]}`
+          )
+        );
+      
+      const weekPresent = weekStats?.weekPresent || 0;
+      const weekTotal = weekStats?.weekTotal || 0;
       trend.push({
         week: `Week ${4 - i}`,
         pct: weekTotal > 0 ? Math.round((weekPresent / weekTotal) * 100) : 0,
@@ -181,6 +219,7 @@ router.get('/employee-stats', authenticate, async (req, res) => {
 
     res.json({ present, absent, halfDay, onLeave, lateCount, attendancePct, trend });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Failed to fetch employee stats' });
   }
 });

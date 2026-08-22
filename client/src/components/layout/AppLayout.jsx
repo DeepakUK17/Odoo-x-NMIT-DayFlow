@@ -7,7 +7,7 @@ import { attendanceAPI } from '../../services/api';
 import NotificationBell from '../notifications/NotificationBell';
 import {
   Home, Clock, Calendar, CreditCard, Bell, User, LogOut,
-  Building2, Users, Brain, BarChart3, Zap, Activity, ChevronLeft, ChevronRight
+  Building2, Users, Brain, BarChart3, Zap, Activity, ChevronLeft, ChevronRight, Menu, X
 } from 'lucide-react';
 
 const employeeNav = [
@@ -44,6 +44,7 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [todayAtt, setTodayAtt] = useState(null);
 
   React.useEffect(() => {
@@ -64,8 +65,24 @@ export default function AppLayout() {
 
   return (
     <div className="page-layout">
+      {/* Mobile Header */}
+      <div className="mobile-header">
+        <button className="btn btn-icon btn-ghost" onClick={() => setMobileMenuOpen(true)}>
+          <Menu size={20} />
+        </button>
+        <div className="mobile-brand" style={{ fontSize: '1.2rem', fontWeight: 800, background: 'var(--brand-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          DAYFLOW
+        </div>
+        <div style={{ width: 36 }} /> {/* spacer to center brand */}
+      </div>
+
+      {/* Mobile Backdrop */}
+      {mobileMenuOpen && (
+        <div className="mobile-backdrop" onClick={() => setMobileMenuOpen(false)} />
+      )}
+
       {/* Sidebar */}
-      <aside className="sidebar" style={{ width: collapsed ? 'var(--sidebar-collapsed)' : 'var(--sidebar-width)' }}>
+      <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`} style={{ width: collapsed ? 'var(--sidebar-collapsed)' : 'var(--sidebar-width)' }}>
         {/* Logo */}
         <div className="sidebar-logo">
           {!collapsed ? (
@@ -94,6 +111,7 @@ export default function AppLayout() {
                 className={`nav-item ${isActive ? 'active' : ''}`}
                 end={item.path === '/hr'}
                 title={collapsed ? item.label : undefined}
+                onClick={() => setMobileMenuOpen(false)}
               >
                 <span className="nav-item-icon">{item.icon}</span>
                 {!collapsed && <span>{item.label}</span>}
@@ -136,10 +154,10 @@ export default function AppLayout() {
             {!collapsed && <LogOut size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
           </div>
 
-          {/* Collapse toggle */}
+          {/* Collapse toggle (Desktop only) */}
           <button
             onClick={() => setCollapsed(c => !c)}
-            className="btn btn-ghost btn-sm"
+            className="btn btn-ghost btn-sm collapse-btn"
             style={{ width: '100%', marginTop: 8, justifyContent: collapsed ? 'center' : 'flex-end' }}
           >
             {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
@@ -148,7 +166,7 @@ export default function AppLayout() {
       </aside>
 
       {/* Main content */}
-      <main className="page-content" style={{ marginLeft: collapsed ? 'var(--sidebar-collapsed)' : 'var(--sidebar-width)', overflowX: 'hidden' }}>
+      <main className={`page-content ${collapsed ? 'collapsed' : ''}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
