@@ -372,7 +372,7 @@ The entire UI is built on a custom CSS design system in `index.css`:
 
 ## 📝 License
 
-Built exclusively for the **Odoo × NMIT Hackathon 2026**. All rights reserved by the team.
+Built exclusively for the **Deepak U K & Aiswarya M**. All rights reserved by the team.
 
 ---
 
